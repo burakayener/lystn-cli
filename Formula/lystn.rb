@@ -3,8 +3,8 @@ class Lystn < Formula
 
   desc "Listen to AI coding assistant responses through your speakers"
   homepage "https://github.com/burakayener/Lystn"
-  url "https://files.pythonhosted.org/packages/source/l/lystn/lystn-0.1.3.tar.gz"
-  sha256 "85bb258247245f35ad0931f1ba8ba09a2ac8667a33ed16f9198db4392cd55593"
+  url "https://files.pythonhosted.org/packages/source/l/lystn/lystn-0.1.5.tar.gz"
+  sha256 "632819b3c5a95dea694c5284546135d681e5e8832e3b88abfeb72cd380184bc5"
   license "Apache-2.0"
 
   depends_on "portaudio"
