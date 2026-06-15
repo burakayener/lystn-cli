@@ -3,8 +3,8 @@ class Lystn < Formula
 
   desc "Listen to AI coding assistant responses through your speakers"
   homepage "https://github.com/burakayener/Lystn"
-  url "https://files.pythonhosted.org/packages/source/l/lystn/lystn-0.1.5.tar.gz"
-  sha256 "632819b3c5a95dea694c5284546135d681e5e8832e3b88abfeb72cd380184bc5"
+  url "https://files.pythonhosted.org/packages/source/l/lystn/lystn-0.1.6.tar.gz"
+  sha256 "165b97119e13c7b6ce7a62f283b7f175daf1d99b47d2d9a009e688cb3b19953c"
   license "Apache-2.0"
 
   depends_on "portaudio"
@@ -53,6 +53,11 @@ class Lystn < Formula
   resource "sounddevice" do
     url "https://files.pythonhosted.org/packages/2a/f9/2592608737553638fca98e21e54bfec40bf577bb98a61b2770c912aab25e/sounddevice-0.5.5.tar.gz"
     sha256 "22487b65198cb5bf2208755105b524f78ad173e5ab6b445bdab1c989f6698df3"
+  end
+
+  resource "tomlkit" do
+    url "https://files.pythonhosted.org/packages/51/db/03eaf4331631ef6b27d6e3c9b68c54dc6f0d63d87201fed600cc409307fd/tomlkit-0.15.0.tar.gz"
+    sha256 "7d1a9ecba3086638211b13814ea79c90dd54dd11993564376f3aa92271f5c7a3"
   end
 
   resource "urllib3" do
