@@ -99,6 +99,14 @@ pub async fn synthesize_and_play(p: SpeakParams<'_>) -> Result<(), DynErr> {
             Message::Text(text) => {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(text.as_str()) {
                     match v.get("event").and_then(|e| e.as_str()) {
+                        // Persist the spoken line so the statusline can show it.
+                        Some("speaking") => {
+                            if let (Some(term), Some(spoken)) =
+                                (p.terminal, v.get("text").and_then(|t| t.as_str()))
+                            {
+                                write_speaking(term, spoken);
+                            }
+                        }
                         Some("end") | Some("error") => break,
                         _ => {}
                     }
@@ -123,4 +131,11 @@ fn http_to_ws(url: &str) -> String {
     } else {
         url.to_string()
     }
+}
+
+/// Persist the spoken text so the statusline can show it in the terminal,
+/// keyed by the terminal/session id (which the statusline also receives).
+fn write_speaking(terminal: &str, text: &str) {
+    let path = std::env::temp_dir().join(format!("lystn-say-{terminal}.txt"));
+    let _ = std::fs::write(path, text);
 }

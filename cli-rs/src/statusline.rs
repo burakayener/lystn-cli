@@ -124,6 +124,36 @@ fn frame_index(session_id: &str, n: usize) -> usize {
     next
 }
 
+/// Read the text Lystn is speaking for this session, if it was written recently
+/// (the hook drops it in the temp dir). None once it's stale, so the line clears.
+fn recent_say(session_id: &str) -> Option<String> {
+    let path = std::env::temp_dir().join(format!("lystn-say-{session_id}.txt"));
+    let meta = std::fs::metadata(&path).ok()?;
+    let age = std::time::SystemTime::now()
+        .duration_since(meta.modified().ok()?)
+        .ok()?;
+    if age.as_secs() > 45 {
+        return None;
+    }
+    let t = std::fs::read_to_string(&path).ok()?;
+    let t = t.trim();
+    if t.is_empty() {
+        None
+    } else {
+        Some(t.to_string())
+    }
+}
+
+/// Truncate to `max` characters, adding an ellipsis if cut.
+fn truncate(s: &str, max: usize) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.len() <= max {
+        return s.to_string();
+    }
+    let cut: String = chars.into_iter().take(max.saturating_sub(1)).collect();
+    format!("{cut}\u{2026}")
+}
+
 pub fn run() {
     let mut raw = String::new();
     let _ = std::io::stdin().read_to_string(&mut raw);
@@ -152,7 +182,10 @@ pub fn run() {
     let (_name, frames) = STYLES[style_idx];
     let anim = colorize(frames[frame_index(&session_id, frames.len())]);
     let mut out = format!("{PURPLE}\u{1f50a} lystn{RESET} {anim}");
-    if !model.is_empty() {
+    // While a reply is being spoken, show its text; otherwise show the model.
+    if let Some(say) = recent_say(&session_id) {
+        out.push_str(&format!("  {DIM}{}{RESET}", truncate(&say, 64)));
+    } else if !model.is_empty() {
         out.push_str(&format!("  {DIM}{model}{RESET}"));
     }
     println!("{out}");
