@@ -1,0 +1,62 @@
+# CI: build the Lystn Rust binaries for every OS and attach them to the Release.
+#
+# WHERE THIS GOES: copy to  .github/workflows/release.yml  in the PUBLIC
+# `lystn-cli` repo (it does NOT run from here under packaging/). That repo must
+# contain the Rust source at `cli-rs/` and the npm package at the root.
+#
+# HOW IT RUNS: push a tag like `v0.3.0` (matching package.json's version).
+# GitHub builds all four targets on their own machines (incl. macOS) and uploads
+# `lystn-<target>` assets to the v0.3.0 Release. Then run `npm publish`.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # needed to create/upload the GitHub Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+          - os: macos-latest          # Apple Silicon
+            target: aarch64-apple-darwin
+            ext: ""
+          - os: macos-13              # Intel
+            target: x86_64-apple-darwin
+            ext: ""
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux audio headers (cpal needs ALSA)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Install Rust + target
+        run: rustup update stable && rustup target add ${{ matrix.target }}
+
+      - name: Build
+        working-directory: cli-rs
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "cli-rs/target/${{ matrix.target }}/release/lystn${{ matrix.ext }}" \
+             "dist/lystn-${{ matrix.target }}${{ matrix.ext }}"
+
+      - name: Attach to the Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/lystn-${{ matrix.target }}${{ matrix.ext }}

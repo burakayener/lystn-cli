@@ -1,0 +1,41 @@
+[package]
+name = "lystn"
+version = "0.1.0"
+edition = "2021"
+description = "Listen to AI coding assistant responses (Rust client)"
+license = "MIT"
+
+[[bin]]
+name = "lystn"
+path = "src/main.rs"
+
+[dependencies]
+# CLI args + subcommands
+clap = { version = "4", features = ["derive"] }
+
+# Async runtime (single shared runtime; current-thread is enough for the hook)
+tokio = { version = "1", features = ["rt", "macros", "time", "io-util", "sync"] }
+
+# HTTP POST /speak. rustls TLS so the binary stays self-contained (no OpenSSL).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# WebSocket /stream. rustls + bundled webpki roots -> works for wss without a
+# system cert store, keeping the static-binary promise.
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+
+# JSON: /speak body + WS event messages + config file.
+# preserve_order keeps `config show` / settings.json key order stable (matches
+# the Python client, which relies on dict insertion order).
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# Codex config is TOML; toml_edit round-trips so the user's comments/formatting
+# survive a non-destructive merge (mirrors the Python client's tomlkit usage).
+toml_edit = "0.25"
+
+# Random `state` token for the `lystn login` localhost OAuth handshake.
+getrandom = "0.3"
+
+# Audio playback on the default output device (WASAPI / CoreAudio / ALSA)
+cpal = "0.15"

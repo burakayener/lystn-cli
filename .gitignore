@@ -1,0 +1,4 @@
+/cli-rs/target
+/binary
+*.download
+node_modules

@@ -1,0 +1,27 @@
+{
+  "name": "lystn-cli",
+  "version": "0.3.0",
+  "description": "Listen to your AI coding assistant — speaks Claude Code & Codex replies aloud.",
+  "homepage": "https://lystn.space",
+  "repository": { "type": "git", "url": "https://github.com/burakayener/lystn-cli" },
+  "license": "Apache-2.0",
+  "bin": { "lystn": "bin/lystn.js" },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js || exit 0"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md"
+  ],
+  "engines": { "node": ">=18" },
+  "keywords": [
+    "tts",
+    "claude-code",
+    "codex",
+    "ai-agents",
+    "voice",
+    "accessibility",
+    "adhd"
+  ]
+}
