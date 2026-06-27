@@ -12,8 +12,7 @@ lystn wire        # wires Claude Code + Codex
 lystn login       # sign in (Google)
 ```
 
-That's it — no Python, no compiler. The install downloads a small native binary
-for your OS (macOS, Windows, Linux).
+That's it
 
 ## Commands
 
