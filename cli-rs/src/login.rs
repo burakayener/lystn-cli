@@ -18,14 +18,67 @@ use serde_json::json;
 use crate::config::{self, Config};
 use crate::ui;
 
-const LOGIN_OK_HTML: &[u8] = b"<!doctype html><meta charset=utf-8><title>Lystn</title>\
-<body style='font-family:system-ui;max-width:32rem;margin:4rem auto;text-align:center'>\
-<h1>You're signed in to Lystn</h1>\
-<p>Your key is saved. You can close this tab and return to the terminal.</p></body>";
+// Standalone success/error pages shown in the browser after the CLI callback.
+// Styled inline to match the website's dark brand palette
+// (web/src/pages/index.astro :root vars). Byte strings are double-quote
+// delimited, so all HTML/CSS quoting uses single quotes.
+const PAGE_HEAD: &str = "<!doctype html><html lang=en><meta charset=utf-8>\
+<meta name=viewport content='width=device-width,initial-scale=1'><title>Lystn</title>\
+<link rel='preconnect' href='https://fonts.googleapis.com'>\
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>\
+<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap' rel='stylesheet'>\
+<style>\
+*{box-sizing:border-box}\
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\
+padding:1.5rem;background:#08070d;color:#f5f3fc;line-height:1.5;\
+font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;\
+-webkit-font-smoothing:antialiased;\
+background-image:radial-gradient(60rem 40rem at 50% -12%,rgba(109,94,252,.20),transparent 60%),\
+radial-gradient(48rem 36rem at 92% 112%,rgba(39,224,196,.10),transparent 60%)}\
+.card{text-align:center;max-width:25rem;width:100%;padding:2.75rem 2.25rem;\
+border:1px solid rgba(255,255,255,.08);border-radius:20px;\
+background:linear-gradient(180deg,#13121d,#0d0c15);\
+box-shadow:0 40px 100px -30px rgba(0,0,0,.8),0 0 0 1px rgba(109,94,252,.06)}\
+.brand{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:19px;\
+letter-spacing:-.02em;margin-bottom:1.6rem}\
+.icon{width:58px;height:58px;border-radius:999px;margin:0 auto 1.2rem;display:flex;\
+align-items:center;justify-content:center;font-size:1.7rem}\
+.icon.ok{background:rgba(39,224,196,.12);color:#27e0c4;border:1px solid rgba(39,224,196,.3)}\
+.icon.err{background:rgba(109,94,252,.12);color:#a99bff;border:1px solid rgba(109,94,252,.3)}\
+h1{font-size:1.45rem;letter-spacing:-.025em;margin:0 0 .35rem;font-weight:800}\
+p{color:#c8c4dc;margin:1.35rem 0 0;line-height:1.65;font-size:.95rem}\
+code{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;color:#a99bff;\
+background:rgba(109,94,252,.12);border:1px solid rgba(255,255,255,.08);\
+border-radius:6px;padding:.1rem .42rem;font-size:.85em}\
+.close{color:#8e8aa6;font-size:.8rem;margin-top:1.6rem}\
+</style>";
 
-const LOGIN_BAD_HTML: &[u8] = b"<!doctype html><meta charset=utf-8><title>Lystn</title>\
-<body style='font-family:system-ui;max-width:32rem;margin:4rem auto;text-align:center'>\
-<h1>Lystn</h1><p>Sign-in could not be verified. Please run <code>lystn login</code> again.</p></body>";
+// The Lystn ear wordmark glyph (single-quoted attrs for the byte-string context).
+const BRAND_SVG: &str = "<svg width=28 height=28 viewBox='0 0 48 48' fill='none' aria-hidden='true'>\
+<defs><linearGradient id='lg' x1='0' y1='0' x2='1' y2='1'>\
+<stop offset='0' stop-color='#a99bff'/><stop offset='1' stop-color='#6d5efc'/></linearGradient></defs>\
+<g stroke='url(#lg)' stroke-width='3.4' stroke-linecap='round' fill='none'>\
+<path d='M30 22a8 8 0 1 0-3 6.4'/><path d='M25.5 22a3.5 3.5 0 1 0-1 2.5'/>\
+<path d='M24 27.5c-1 2.4-3.2 4-5.6 3.6'/></g>\
+<g stroke='#27e0c4' stroke-width='3.2' stroke-linecap='round' fill='none'>\
+<path d='M33 18a8 8 0 0 1 0 12'/><path d='M37 14a13.5 13.5 0 0 1 0 20'/></g></svg>";
+
+fn login_ok_html() -> String {
+    format!(
+        "{PAGE_HEAD}<div class=card><div class=brand>{BRAND_SVG}Lystn</div>\
+<div class='icon ok'>&#10003;</div><h1>You're signed in to Lystn</h1>\
+<p>Your key is saved. You can close this tab and return to the terminal.</p>\
+</div></html>"
+    )
+}
+
+fn login_bad_html() -> String {
+    format!(
+        "{PAGE_HEAD}<div class=card><div class=brand>{BRAND_SVG}Lystn</div>\
+<div class='icon err'>!</div><h1>Sign-in could not be verified</h1>\
+<p>Please run <code>lystn login</code> again.</p></div></html>"
+    )
+}
 
 pub fn run(server_override: Option<&str>) {
     let cfg = Config::load();
@@ -128,8 +181,8 @@ fn handle(mut stream: TcpStream, state: &str) -> Option<(String, String)> {
     let email = query_param(query, "email").unwrap_or_default();
     let ok = !key.is_empty() && got_state == state;
 
-    let body = if ok { LOGIN_OK_HTML } else { LOGIN_BAD_HTML };
-    let _ = write_response(stream, "200 OK", body);
+    let body = if ok { login_ok_html() } else { login_bad_html() };
+    let _ = write_response(stream, "200 OK", body.as_bytes());
 
     if ok {
         Some((key, email))
