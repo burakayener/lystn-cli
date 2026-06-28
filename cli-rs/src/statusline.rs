@@ -144,14 +144,20 @@ fn recent_say(session_id: &str) -> Option<String> {
     }
 }
 
-/// Truncate to `max` characters, adding an ellipsis if cut.
+/// Truncate to about `max` characters at a word boundary, adding an ellipsis.
+/// The audio carries the full summary — the statusline is just a glance cue, so
+/// keep it short and never cut mid-word.
 fn truncate(s: &str, max: usize) -> String {
     let chars: Vec<char> = s.chars().collect();
     if chars.len() <= max {
         return s.to_string();
     }
-    let cut: String = chars.into_iter().take(max.saturating_sub(1)).collect();
-    format!("{cut}\u{2026}")
+    let window: String = chars.iter().take(max).collect();
+    let cut = match window.rfind(' ') {
+        Some(i) if i >= max / 2 => window[..i].to_string(),
+        _ => window,
+    };
+    format!("{}\u{2026}", cut.trim_end())
 }
 
 pub fn run() {
@@ -184,7 +190,7 @@ pub fn run() {
     let mut out = format!("{PURPLE}\u{1f50a} lystn{RESET} {anim}");
     // While a reply is being spoken, show its text; otherwise show the model.
     if let Some(say) = recent_say(&session_id) {
-        out.push_str(&format!("  {DIM}{}{RESET}", truncate(&say, 64)));
+        out.push_str(&format!("  {DIM}{}{RESET}", truncate(&say, 40)));
     } else if !model.is_empty() {
         out.push_str(&format!("  {DIM}{model}{RESET}"));
     }
