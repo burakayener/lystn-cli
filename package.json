@@ -3,7 +3,7 @@
   "version": "0.3.4",
   "description": "Listen to your AI coding assistant — speaks Claude Code & Codex replies aloud.",
   "homepage": "https://lystn.space",
-  "repository": { "type": "git", "url": "https://github.com/burakayener/lystn-cli" },
+  "repository": { "type": "git", "url": "git+https://github.com/burakayener/lystn-cli.git" },
   "license": "Apache-2.0",
   "bin": { "lystn": "bin/lystn.js" },
   "scripts": {
