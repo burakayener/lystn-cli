@@ -1,26 +1,30 @@
-# CI: build the Lystn Rust binaries for every OS and attach them to the Release.
+# CI: build the Lystn Rust binaries for every OS and attach them to the Release,
+# then publish the npm package automatically WITH PROVENANCE.
 #
-# WHERE THIS GOES: copy to  .github/workflows/release.yml  in the PUBLIC
-# `lystn-cli` repo (it does NOT run from here under packaging/). That repo must
-# contain the Rust source at `cli-rs/` and the npm package at the root.
+# WHERE THIS GOES: this lives at .github/workflows/release.yml in the PUBLIC
+# `lystn-cli` repo. That repo has the Rust source at `cli-rs/` and the npm
+# package at the root. (A synced copy is kept at packaging/npm/release.yml in the
+# private Lystn repo.)
 #
-# HOW IT RUNS: push a tag like `v0.3.0` (matching package.json's version).
-# GitHub builds all four targets on their own machines (incl. macOS) and uploads
-# `lystn-<target>` assets to the v0.3.0 Release. Then the `publish` job publishes
-# the npm package automatically WITH PROVENANCE — no manual `npm publish` needed.
+# HOW IT RUNS: push a tag like `v0.3.5` (matching package.json's version).
+# GitHub builds all targets, uploads `lystn-<target>` assets to the Release, then
+# the `publish` job publishes to npm. No manual `npm publish` needed.
 #
 # PROVENANCE = the green "Built and signed on GitHub Actions" badge on npmjs.com.
-# It cryptographically links the published package to this exact repo + commit +
-# workflow run, so users can trust the package wasn't tampered with. It is only
-# possible when npm publishes FROM CI (OIDC), which is why publishing moved here.
+# It cryptographically links the package to this repo + commit + workflow run.
 #
-# ONE-TIME SETUP (required for the publish job):
-#   npmjs.com -> Access Tokens -> Generate -> "Automation" (or Granular w/ publish)
-#   GitHub: repo Settings -> Secrets and variables -> Actions -> New secret
-#           name = NPM_TOKEN, value = <the token>
-#   (Optional, more secure, no stored secret: configure "Trusted Publishing" on
-#    the lystn-cli package on npmjs.com instead of NPM_TOKEN — provenance still
-#    works and you can drop the NODE_AUTH_TOKEN line below.)
+# AUTH = npm "Trusted Publishing" via OIDC. NO token is stored anywhere, and your
+# npm 2FA stays fully enabled. The workflow proves its identity to npm directly.
+#
+# ONE-TIME SETUP (Trusted Publishing — do this once on npmjs.com):
+#   npmjs.com -> your package `lystn-cli` -> Settings -> "Trusted Publisher"
+#   -> GitHub Actions, then enter:
+#        Organization or user:  burakayener
+#        Repository:            lystn-cli
+#        Workflow filename:     release.yml
+#        Environment:           (leave blank)
+#   Save. That authorizes THIS workflow to publish. No NPM_TOKEN secret required
+#   (you can delete the old NPM_TOKEN secret + any granular token afterward).
 name: release
 
 on:
@@ -78,25 +82,26 @@ jobs:
             "dist/lystn-${{ matrix.target }}${{ matrix.ext }}" \
             --clobber --repo "$GITHUB_REPOSITORY"
 
-  # Publish the npm package AFTER the binaries exist on the Release (so a fresh
-  # `npm install -g lystn-cli` can immediately download the matching binary).
-  # `--provenance` produces the verified badge on npmjs.com.
+  # Publish to npm via OIDC "Trusted Publishing" — no token, 2FA stays on.
+  # Runs after the binaries exist so a fresh `npm install -g lystn-cli` can
+  # immediately download the matching binary. Provenance is generated automatically.
   publish:
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # OIDC — required for npm provenance
+      id-token: write   # OIDC — lets npm authenticate this workflow + sign provenance
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Node (npm 10 supports --provenance)
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Publish to npm with provenance
+      - name: Upgrade npm (Trusted Publishing needs npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Publish to npm (Trusted Publishing + provenance)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
