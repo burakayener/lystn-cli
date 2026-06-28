@@ -165,7 +165,7 @@ fn advance_scroll(session_id: &str, text_len: usize, n: usize) -> usize {
         })
         .unwrap_or((0, 0));
     let off = if prev_len == text_len { off } else { 0 };
-    let next = (off + 3) % n.max(1); // 3 chars/refresh — 1.5x the old speed
+    let next = (off + 6) % n.max(1); // 6 chars/refresh
     let _ = std::fs::write(&path, format!("{next}:{text_len}"));
     off
 }
