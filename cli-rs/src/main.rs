@@ -15,6 +15,7 @@ mod hook;
 mod install;
 mod login;
 mod statusline;
+mod test;
 mod ui;
 
 use clap::{Parser, Subcommand};
@@ -96,6 +97,11 @@ enum Commands {
     },
     /// Print the Claude Code statusline string.
     Statusline,
+    /// Speak a built-in sample to test audio + a language (e.g. test, test tr, test fr).
+    Test {
+        /// Language: en (default), tr, fr, es, it, pt, hi, zh.
+        lang: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -140,5 +146,6 @@ fn main() {
         Commands::Speed { value } => commands::speed(value.as_deref()),
         Commands::Volume { value } => commands::volume(value.as_deref()),
         Commands::Statusline => statusline::run(),
+        Commands::Test { lang } => test::run(lang),
     }
 }
