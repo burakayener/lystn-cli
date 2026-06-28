@@ -25,7 +25,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: ".exe"
-          - os: macos-latest          # Apple Silicon only (Intel Macs unsupported)
+          - os: macos-15              # Apple Silicon only (Intel Macs unsupported)
             target: aarch64-apple-darwin
             ext: ""
           - os: ubuntu-latest
@@ -33,7 +33,7 @@ jobs:
             ext: ""
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Linux audio headers (cpal needs ALSA)
         if: matrix.os == 'ubuntu-latest'
@@ -53,7 +53,13 @@ jobs:
           cp "cli-rs/target/${{ matrix.target }}/release/lystn${{ matrix.ext }}" \
              "dist/lystn-${{ matrix.target }}${{ matrix.ext }}"
 
-      - name: Attach to the Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/lystn-${{ matrix.target }}${{ matrix.ext }}
+      - name: Upload to the Release (gh CLI — no Node action, no deprecation noise)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+            --notes "Lystn $GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" || true
+          gh release upload "$GITHUB_REF_NAME" \
+            "dist/lystn-${{ matrix.target }}${{ matrix.ext }}" \
+            --clobber --repo "$GITHUB_REPOSITORY"
