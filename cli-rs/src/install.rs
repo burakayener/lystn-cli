@@ -528,7 +528,7 @@ pub fn install(
     codex: bool,
     config_path: Option<&str>,
 ) {
-    ui::banner("install");
+    ui::banner("wire");
     if codex || config_path.is_some() {
         codex_install(config_path, print_only);
         return;
@@ -551,7 +551,7 @@ pub fn install(
 }
 
 pub fn uninstall(settings_path: Option<&str>, codex: bool, config_path: Option<&str>) {
-    ui::banner("uninstall");
+    ui::banner("unwire");
     if codex || config_path.is_some() {
         codex_uninstall(config_path);
         return;
