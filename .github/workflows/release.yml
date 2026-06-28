@@ -105,3 +105,30 @@ jobs:
 
       - name: Publish to npm (Trusted Publishing + provenance)
         run: npm publish --provenance --access public
+
+  # Free post-publish canary: install the just-published package from npm on a
+  # real Apple Silicon macOS runner and confirm the darwin binary downloads and
+  # runs. Catches "the Mac build is broken" without renting a Mac.
+  smoke-macos:
+    needs: publish
+    runs-on: macos-15   # Apple Silicon — matches the aarch64-apple-darwin binary
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install from npm and verify the binary runs
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          echo "Smoke-testing lystn-cli@$VER on $(uname -m) macOS"
+          # npm's CDN can lag a few seconds right after publish — retry briefly.
+          for i in 1 2 3 4 5 6; do
+            npm install -g "lystn-cli@$VER" && break
+            echo "install attempt $i failed; waiting 10s for npm propagation…"; sleep 10
+          done
+          # First `lystn` run self-fetches the binary from the v$VER release if the
+          # postinstall was skipped, then execs it. Confirm it runs and reports $VER.
+          lystn --version
+          lystn --version | grep -q "$VER" && echo "OK: lystn $VER installs and runs on macOS"
