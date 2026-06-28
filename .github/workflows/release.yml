@@ -6,7 +6,21 @@
 #
 # HOW IT RUNS: push a tag like `v0.3.0` (matching package.json's version).
 # GitHub builds all four targets on their own machines (incl. macOS) and uploads
-# `lystn-<target>` assets to the v0.3.0 Release. Then run `npm publish`.
+# `lystn-<target>` assets to the v0.3.0 Release. Then the `publish` job publishes
+# the npm package automatically WITH PROVENANCE — no manual `npm publish` needed.
+#
+# PROVENANCE = the green "Built and signed on GitHub Actions" badge on npmjs.com.
+# It cryptographically links the published package to this exact repo + commit +
+# workflow run, so users can trust the package wasn't tampered with. It is only
+# possible when npm publishes FROM CI (OIDC), which is why publishing moved here.
+#
+# ONE-TIME SETUP (required for the publish job):
+#   npmjs.com -> Access Tokens -> Generate -> "Automation" (or Granular w/ publish)
+#   GitHub: repo Settings -> Secrets and variables -> Actions -> New secret
+#           name = NPM_TOKEN, value = <the token>
+#   (Optional, more secure, no stored secret: configure "Trusted Publishing" on
+#    the lystn-cli package on npmjs.com instead of NPM_TOKEN — provenance still
+#    works and you can drop the NODE_AUTH_TOKEN line below.)
 name: release
 
 on:
@@ -63,3 +77,26 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" \
             "dist/lystn-${{ matrix.target }}${{ matrix.ext }}" \
             --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Publish the npm package AFTER the binaries exist on the Release (so a fresh
+  # `npm install -g lystn-cli` can immediately download the matching binary).
+  # `--provenance` produces the verified badge on npmjs.com.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC — required for npm provenance
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node (npm 10 supports --provenance)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
