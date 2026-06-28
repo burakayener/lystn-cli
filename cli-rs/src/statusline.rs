@@ -124,40 +124,50 @@ fn frame_index(session_id: &str, n: usize) -> usize {
     next
 }
 
-/// Read the text Lystn is speaking for this session, if it was written recently
-/// (the hook drops it in the temp dir). None once it's stale, so the line clears.
-fn recent_say(session_id: &str) -> Option<String> {
+/// The text Lystn is speaking for this session (the hook drops it in the temp
+/// dir). It persists until the next reply overwrites it — no time expiry, so it
+/// stays on the bar until you get a new response.
+fn current_say(session_id: &str) -> Option<String> {
     let path = std::env::temp_dir().join(format!("lystn-say-{session_id}.txt"));
-    let meta = std::fs::metadata(&path).ok()?;
-    let age = std::time::SystemTime::now()
-        .duration_since(meta.modified().ok()?)
-        .ok()?;
-    if age.as_secs() > 45 {
-        return None;
-    }
     let t = std::fs::read_to_string(&path).ok()?;
-    let t = t.trim();
+    let t = t.trim().to_string();
     if t.is_empty() {
         None
     } else {
-        Some(t.to_string())
+        Some(t)
     }
 }
 
-/// Truncate to about `max` characters at a word boundary, adding an ellipsis.
-/// The audio carries the full summary — the statusline is just a glance cue, so
-/// keep it short and never cut mid-word.
-fn truncate(s: &str, max: usize) -> String {
-    let chars: Vec<char> = s.chars().collect();
-    if chars.len() <= max {
-        return s.to_string();
+/// Scroll the full spoken line across a fixed-width window (a marquee) so the
+/// WHOLE summary is visible over a few seconds. Text that already fits is shown
+/// as-is. The offset persists + advances each refresh and restarts on a new reply.
+fn marquee(text: &str, session_id: &str, width: usize) -> String {
+    let mut full: Vec<char> = text.chars().collect();
+    let text_len = full.len();
+    if text_len <= width {
+        return text.to_string();
     }
-    let window: String = chars.iter().take(max).collect();
-    let cut = match window.rfind(' ') {
-        Some(i) if i >= max / 2 => window[..i].to_string(),
-        _ => window,
-    };
-    format!("{}\u{2026}", cut.trim_end())
+    full.extend("      ".chars()); // a gap before the text loops around
+    let n = full.len();
+    let off = advance_scroll(session_id, text_len, n);
+    (0..width).map(|i| full[(off + i) % n]).collect()
+}
+
+/// Read + advance the per-session marquee offset (2 chars/refresh). Resets to 0
+/// when the text length changes (i.e. a new reply arrived).
+fn advance_scroll(session_id: &str, text_len: usize, n: usize) -> usize {
+    let path = std::env::temp_dir().join(format!("lystn-scroll-{session_id}.txt"));
+    let (off, prev_len) = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| {
+            let mut it = s.trim().split(':');
+            Some((it.next()?.parse::<usize>().ok()?, it.next()?.parse::<usize>().ok()?))
+        })
+        .unwrap_or((0, 0));
+    let off = if prev_len == text_len { off } else { 0 };
+    let next = (off + 2) % n.max(1);
+    let _ = std::fs::write(&path, format!("{next}:{text_len}"));
+    off
 }
 
 pub fn run() {
@@ -189,8 +199,8 @@ pub fn run() {
     let anim = colorize(frames[frame_index(&session_id, frames.len())]);
     let mut out = format!("{PURPLE}\u{1f50a} lystn{RESET} {anim}");
     // While a reply is being spoken, show its text; otherwise show the model.
-    if let Some(say) = recent_say(&session_id) {
-        out.push_str(&format!("  {DIM}{}{RESET}", truncate(&say, 40)));
+    if let Some(say) = current_say(&session_id) {
+        out.push_str(&format!("  {DIM}{}{RESET}", marquee(&say, &session_id, 50)));
     } else if !model.is_empty() {
         out.push_str(&format!("  {DIM}{model}{RESET}"));
     }
