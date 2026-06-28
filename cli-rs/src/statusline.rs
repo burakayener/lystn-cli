@@ -165,7 +165,7 @@ fn advance_scroll(session_id: &str, text_len: usize, n: usize) -> usize {
         })
         .unwrap_or((0, 0));
     let off = if prev_len == text_len { off } else { 0 };
-    let next = (off + 25) % n.max(1); // 25 chars/refresh
+    let next = (off + 22) % n.max(1); // 22 chars/refresh
     let _ = std::fs::write(&path, format!("{next}:{text_len}"));
     off
 }
@@ -200,7 +200,7 @@ pub fn run() {
     let mut out = format!("{PURPLE}\u{1f50a} lystn{RESET} {anim}");
     // While a reply is being spoken, show its text; otherwise show the model.
     if let Some(say) = current_say(&session_id) {
-        out.push_str(&format!("  {DIM}{}{RESET}", marquee(&say, &session_id, 50)));
+        out.push_str(&format!("  {DIM}{}{RESET}", marquee(&say, &session_id, 64)));
     } else if !model.is_empty() {
         out.push_str(&format!("  {DIM}{model}{RESET}"));
     }
