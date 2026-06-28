@@ -251,7 +251,7 @@ fn claude_install(settings_path: Option<&str>) {
             json!({
                 "type": "command",
                 "command": format!("{} statusline", lystn_exe()),
-                "refreshInterval": 0.3
+                "refreshInterval": 1
             }),
         );
     }
