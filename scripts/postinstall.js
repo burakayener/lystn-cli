@@ -26,8 +26,9 @@ function target() {
   const p = process.platform;
   const a = process.arch;
   if (p === "win32" && a === "x64") return { asset: "lystn-x86_64-pc-windows-msvc.exe", ext: ".exe" };
-  if (p === "darwin" && a === "x64") return { asset: "lystn-x86_64-apple-darwin", ext: "" };
-  if (p === "darwin" && a === "arm64") return { asset: "lystn-aarch64-apple-darwin", ext: "" };
+  // macOS: Apple Silicon only. Serve the arm64 binary for any darwin — an
+  // M-series Mac running an x64 Node under Rosetta still runs arm64 natively.
+  if (p === "darwin") return { asset: "lystn-aarch64-apple-darwin", ext: "" };
   if (p === "linux" && a === "x64") return { asset: "lystn-x86_64-unknown-linux-gnu", ext: "" };
   if (p === "linux" && a === "arm64") return { asset: "lystn-aarch64-unknown-linux-gnu", ext: "" };
   return null;
