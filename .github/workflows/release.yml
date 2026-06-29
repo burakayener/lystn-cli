@@ -6,9 +6,10 @@
 # package at the root. (A synced copy is kept at packaging/npm/release.yml in the
 # private Lystn repo.)
 #
-# HOW IT RUNS: push a tag like `v0.3.5` (matching package.json's version).
-# GitHub builds all targets, uploads `lystn-<target>` assets to the Release, then
-# the `publish` job publishes to npm. No manual `npm publish` needed.
+# HOW IT RUNS: push a tag like `v0.4.0` (matching package.json's version).
+# GitHub builds all targets, uploads `lystn-<target>` assets to the Release AND as
+# workflow artifacts, then the `publish` job bundles every platform binary into the
+# package's binary/ dir and publishes to npm. No postinstall, no manual publish.
 #
 # PROVENANCE = the green "Built and signed on GitHub Actions" badge on npmjs.com.
 # It cryptographically links the package to this repo + commit + workflow run.
@@ -82,9 +83,17 @@ jobs:
             "dist/lystn-${{ matrix.target }}${{ matrix.ext }}" \
             --clobber --repo "$GITHUB_REPOSITORY"
 
+      - name: Upload binary as a workflow artifact (for the publish job to bundle)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.target }}
+          path: dist/lystn-${{ matrix.target }}${{ matrix.ext }}
+          if-no-files-found: error
+
   # Publish to npm via OIDC "Trusted Publishing" — no token, 2FA stays on.
-  # Runs after the binaries exist so a fresh `npm install -g lystn-cli` can
-  # immediately download the matching binary. Provenance is generated automatically.
+  # Gathers every platform binary from the build jobs and BUNDLES them into the
+  # package (binary/), so the published tarball already contains the binaries —
+  # no postinstall, no install-time download. Provenance is generated automatically.
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -93,6 +102,23 @@ jobs:
       id-token: write   # OIDC — lets npm authenticate this workflow + sign provenance
     steps:
       - uses: actions/checkout@v5
+
+      - name: Download all built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: _bin
+          pattern: bin-*
+          merge-multiple: true
+
+      - name: Bundle binaries into the package
+        shell: bash
+        run: |
+          mkdir -p binary
+          cp _bin/lystn-* binary/
+          # workflow artifacts drop the exec bit; restore it so the published
+          # tarball is runnable on macOS/Linux (npm preserves file modes).
+          chmod +x binary/lystn-* 2>/dev/null || true
+          echo "bundled binaries:"; ls -la binary
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -128,7 +154,7 @@ jobs:
             npm install -g "lystn-cli@$VER" && break
             echo "install attempt $i failed; waiting 10s for npm propagation…"; sleep 10
           done
-          # First `lystn` run self-fetches the binary from the v$VER release if the
-          # postinstall was skipped, then execs it. Confirm it runs and reports $VER.
+          # The binary is bundled in the package (no postinstall / download), so
+          # `lystn` runs straight off the install. Confirm it runs and reports $VER.
           lystn --version
           lystn --version | grep -q "$VER" && echo "OK: lystn $VER installs and runs on macOS"
