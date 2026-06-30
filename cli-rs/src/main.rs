@@ -9,6 +9,7 @@
 
 mod api;
 mod audio;
+mod clean;
 mod commands;
 mod config;
 mod hook;

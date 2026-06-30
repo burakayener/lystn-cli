@@ -45,13 +45,21 @@ pub fn run(source_arg: Option<String>) {
         }
     };
 
-    let text = payload
+    let raw_text = payload
         .get("last_assistant_message")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    if text.trim().is_empty() {
+    if raw_text.trim().is_empty() {
         config::hook_log("no assistant message, skipping");
+        return;
+    }
+    // PRIVACY: strip code blocks, file paths, URLs and source filenames on THIS
+    // machine before anything is sent — the most sensitive content never leaves
+    // the device. The server's CLEANER_1 still runs (idempotent) for cosmetics.
+    let text = crate::clean::pre_clean(&raw_text);
+    if text.trim().is_empty() {
+        config::hook_log("nothing speakable after local clean, skipping");
         return;
     }
 
